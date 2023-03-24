@@ -1,5 +1,4 @@
-// Introduïr aquí la teva clau API
-const API_KEY = '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';
+const API_KEY = 'INTRODUIR AQUÍ LA CLAU API';
 const AI_MODEL = "gpt-3.5-turbo-0301";
 const API_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
