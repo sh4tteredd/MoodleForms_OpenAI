@@ -35,22 +35,5 @@ A Tampermonkey script that automatically generates responses based on questions 
 - **Prompt Adjustments**: Update the `prompt` variable to change the format of the question and answer input.
 - **API Endpoint**: If OpenAI updates its API, ensure the `API_ENDPOINT` is updated accordingly.
 
-## Example Use Case
 
-If the target webpage contains:
-
-**Question:**
-```
-What is the capital of France?
-```
-
-**Answers:**
-```
-a) Berlin
-b) Madrid
-c) Paris
-d) Rome
-```
-
-The script sends a prompt to the OpenAI API, and the response (`c`) is appended to the webpage.
 
