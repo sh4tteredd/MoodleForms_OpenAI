@@ -6,8 +6,8 @@ A Tampermonkey script that automatically generates responses based on questions 
 
 - Parses question and answer content from a webpage.
 - Utilizes OpenAI's GPT-4 or later supported models to generate responses.
-- Embeds the generated response directly into the webpage for easy access.
-
+- Auto-selects the correct answer.
+  
 ## Installation
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) for your browser.
@@ -27,7 +27,7 @@ A Tampermonkey script that automatically generates responses based on questions 
 1. The script identifies the question and answer elements on the webpage.
 2. It constructs a prompt to send to the OpenAI API.
 3. The OpenAI API generates a response based on the question and answer data.
-4. The script appends the AI-generated response to the page.
+4. The script selects the answer.
 
 ## Customization
 
