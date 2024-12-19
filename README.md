@@ -18,7 +18,7 @@ A Tampermonkey script that automatically generates responses based on questions 
 
 - A valid OpenAI API key. Replace the placeholder in the script (`const API_KEY = 'sk-';`) with your actual API key.
 - in the script creation window, go to the settings tab and add the following to the User Includes section:
-- `/^https:\/\/nom_de_pàgina?\/mod\/quiz\/attempt\.php\?(:*)/`
+- `/^https:\/\/page_name?\/mod\/quiz\/attempt\.php\?(:*)/`
   - Replace page_name with the domain you want to use.
 
 
