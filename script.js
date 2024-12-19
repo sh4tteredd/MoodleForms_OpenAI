@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Updated Userscript
+// @name         MoodleAI
 // @namespace    http://tampermonkey.net/
 // @version      2024-12-18
 // @description  Automatically generates a response based on a question and its answers on a webpage.
