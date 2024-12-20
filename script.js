@@ -12,7 +12,7 @@
     "use strict";
   
     const API_KEY = "sk-"; // Replace with your OpenAI API key
-    const AI_MODEL = "gpt-4o-mini"; // Updated to use GPT-4 or a later supported model
+    const AI_MODEL = "gpt-4o-mini"; // Updated to use GPT-4 or a later supported model, also gpt-4o
     const API_ENDPOINT = "https://api.openai.com/v1/chat/completions";
   
     // Function to extract text content of an element
@@ -50,9 +50,9 @@
           },
           body: JSON.stringify({
             model: AI_MODEL,
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: "user", content: prompt }], 
             max_tokens: 8,
-            temperature: 0.3,
+            temperature: 0.3, //setting in order to get the most accurate answer for math questions
           }),
         });
   
