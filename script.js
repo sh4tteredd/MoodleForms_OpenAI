@@ -34,7 +34,7 @@
       if (!answersText) return null;
   
       return (
-        'Provide ONLY the alphabetical letter corresponding to the correct answer for the following question, for example if the right answer is the letter a, just print "a", no other text:\n' +
+        'Provide ONLY the alphabetical letter corresponding to the correct answer for the following question, for example if the right answer is the letter a, just print "a", no other text. If it is a true/false, just answer with a for true and b for false:\n' +
         questionText + "\n" + answersText
       );
     };
@@ -51,8 +51,8 @@
           body: JSON.stringify({
             model: AI_MODEL,
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 10,
-            temperature: 0.2,
+            max_tokens: 8,
+            temperature: 0.3,
           }),
         });
   
