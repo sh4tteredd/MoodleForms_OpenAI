@@ -1,59 +1,31 @@
 // ==UserScript==
 // @name         MoodleAI
 // @namespace    http://tampermonkey.net/
-// @version      2025-01-13
-// @description  Generates and selects answers (radio, checkboxes, or text
-// areas) when the user presses the "K" key.
+// @version      2026-02-18
+// @description  Automate answering Moodle quiz questions using OpenAI's API. Press [|] to start. Designed for both multiple choice and open-ended questions. Customize prompts and API key in the script.
 // @author       You
-// @match        https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/
 // @grant        none
 // ==/UserScript==
 
 (function () {
   "use strict";
 
-  const API_KEY = "sk-proj-"; // Replace with your OpenAI API key
+  // --- CONFIGURAZIONE ---
+  const API_KEY =
+    "sk-proj-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; // Set your OpenAI API key here
   const AI_MODEL = "gpt-4o-mini";
+  const MAX_TOKENS = 4000;
+
+  const OPEN_QUESTION_PROMPT =
+    "Write a comprehensive, detailed, and academic answer. Expand on the concepts, use technical terminology, and structure the text clearly. IMPORTANT: Ensure your response is completely finished and do not cut off mid-sentence:\n"; //edit the prompt for open questions as needed
+
   const API_ENDPOINT = "https://api.openai.com/v1/chat/completions";
 
-  // Function to extract text content of an element
-  const getTextContent = (selector, errorMessage) => {
-    const element = document.querySelector(selector);
-    if (!element) {
-      console.error(errorMessage);
-      return null;
-    }
-    return element.innerText.trim();
+  const log = (msg) => {
+    const timestamp = new Date().toLocaleTimeString();
+    console.log(`[MoodleAI ${timestamp}] ${msg}`);
   };
 
-  // Build the prompt for the AI model
-  const buildPrompt = () => {
-    const questionText = getTextContent(
-      ".qtext",
-      "Question element not found."
-    );
-    if (!questionText) return null;
-
-    const answersText = getTextContent(
-      ".answer",
-      "Answer container not found."
-    );
-    if (!answersText) return null;
-
-    if (!answersText.includes("Rich text editor")) {
-      // Non è domanda a risposta aperta
-      return (
-        'Provide ONLY the correct answers for the following question. If there are multiple correct answers, separate them by commas (e.g., "a,c"). For single-choice questions, provide the single correct letter (e.g., "a"). For true/false, answer "a" for true and "b" for false:\n' +
-        questionText +
-        "\n" +
-        answersText
-      );
-    } else {
-      return "Give a synthetic and fluent answer:\n" + questionText;
-    }
-  };
-
-  // Function to send a request to the OpenAI API
   const generateText = async (prompt, apiKey) => {
     try {
       const response = await fetch(API_ENDPOINT, {
@@ -65,93 +37,191 @@
         body: JSON.stringify({
           model: AI_MODEL,
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 200, // Increase tokens for open-ended questions
-          temperature: 0.7, // Adjust for more creative answers
+          max_tokens: MAX_TOKENS,
+          temperature: 0.1, // set the temperature
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
       const data = await response.json();
       return data.choices[0].message.content.trim();
     } catch (error) {
-      console.error("Error in fetch request:", error);
+      log(`ERRORE FETCH: ${error.message}`);
       throw error;
     }
   };
 
-  // Function to handle the AI response and populate the appropriate field
-  const handleResponse = (responseText) => {
-    const answersText = getTextContent(
-      ".answer",
-      "Answer container not found."
-    );
-
-    if (!answersText.includes("Rich text editor")) {
-      // Non è domanda a risposta aperta
-      const answerContainer = document.querySelector(".answer");
-      if (!answerContainer) {
-        console.error("Answer container not found.");
-        return;
-      }
-
-      const inputs = Array.from(
-        answerContainer.querySelectorAll(
-          'input[type="radio"], input[type="checkbox"]'
-        )
-      );
-      if (inputs.length === 0) {
-        console.error("No input elements found.");
-        return;
-      }
-
-      // Parse the AI response
-      const selectedLetters = responseText
-        .split(",")
-        .map((letter) => letter.trim().toLowerCase());
-
-      // Loop through each input and select those matching the response
-      inputs.forEach((input, index) => {
-        const correspondingLetter = String.fromCharCode(
-          "a".charCodeAt(0) + index
-        );
-        if (selectedLetters.includes(correspondingLetter)) {
-          input.checked = true;
-          console.log(`Selected option: ${correspondingLetter}`);
-        }
-      });
-    } else {
-      // Inserisci la risposta AI in un campo contenteditable generico
-      const editableDiv = document.querySelector("[contenteditable='true']");
-      if (editableDiv) {
-        editableDiv.innerHTML = `<p dir="ltr" style="text-align: left;">${responseText}</p>`;
-        console.log("Answer inserted into text area.");
-      } else {
-        console.error("Editable div not found.");
-      }
-    }
-  };
-
-  // Main function
   const main = async () => {
-    const prompt = buildPrompt();
-    if (!prompt) return;
+    log("scanning for questions...");
+    const questionContainers = document.querySelectorAll(".que");
 
-    try {
-      const responseText = await generateText(prompt, API_KEY);
-      handleResponse(responseText);
-    } catch (error) {
-      console.error("Error generating or handling response:", error);
+    if (questionContainers.length === 0) return;
+
+    for (let i = 0; i < questionContainers.length; i++) {
+      const currentQuestion = questionContainers[i];
+      const qTextElement = currentQuestion.querySelector(".qtext");
+      const answerElement = currentQuestion.querySelector(".answer");
+
+      if (!qTextElement || !answerElement) continue;
+
+      const questionText = qTextElement.innerText.trim();
+      const answersText = answerElement.innerText.trim();
+
+      log(`--------------------------------------------------`);
+      log(`Processing Question ${i + 1}:\n${questionText}\nOptions:\n${answersText}`);
+
+      const hasTinyMCE = currentQuestion.querySelector(".tox-tinymce") !== null;
+      const isOpenEnded =
+        hasTinyMCE ||
+        answersText.includes("Rich text editor") ||
+        currentQuestion.querySelector("[contenteditable='true']") !== null;
+
+      let prompt = "";
+      if (isOpenEnded) {
+        prompt = OPEN_QUESTION_PROMPT + questionText;
+      } else {
+        prompt = `You are an expert Professor taking a university exam.
+        TASK: Identify the correct option for the following question.
+
+        STRATEGY:
+          1. Analyze the question carefully, looking for keywords (dates, specific terminology, authors, laws).
+          2. Evaluate each option (a, b, c...) against established academic knowledge.
+          3. Discard distractors (answers that look plausible but are technically incorrect).
+          4. Select the most accurate answer.
+
+        Output your reasoning step-by-step to verify correctness.
+        At the very end, output the final answer in this exact format: "FINAL_ANSWER: [letter]".
+
+        Question:
+        ${questionText}
+
+        Options:
+        ${answersText}`;
+      } //edit the prompt for multiple choice questions as needed
+
+      try {
+        const responseText = await generateText(prompt, API_KEY);
+
+        log(`AI Response:\n${responseText}`);
+
+        if (!isOpenEnded) {
+          const inputs = Array.from(
+            currentQuestion.querySelectorAll(
+              '.answer input[type="radio"], .answer input[type="checkbox"]',
+            ),
+          );
+
+          if (inputs.length > 0) {
+            let selectedLetters = [];
+
+            const bracketMatch = responseText.match(
+              /FINAL_ANSWER:\s*\[(.*?)\]/i,
+            );
+
+            if (bracketMatch) {
+              selectedLetters = bracketMatch[1]
+                .split(",")
+                .map((l) => l.trim().toLowerCase());
+            } else {
+              // Fallback
+                responseText.match(/\[([^\]]+)\][^\[]*$/);
+              if (lastBracketMatch) {
+                selectedLetters = lastBracketMatch[1]
+                  .split(",")
+                  .map((l) => l.trim().toLowerCase());
+              }
+            }
+
+            log(`Lettera(e) estratta(e): ${selectedLetters.join(", ")}`);
+            let found = false;
+
+            inputs.forEach((input, index) => {
+              let correspondingLetter = "";
+
+              const labelId = input.getAttribute("aria-labelledby");
+              const labelContainer = labelId
+                ? document.getElementById(labelId)
+                : input.parentElement;
+
+              if (labelContainer) {
+                const spanLetter =
+                  labelContainer.querySelector(".answernumber");
+                if (spanLetter) {
+                  correspondingLetter = spanLetter.innerText
+                    .replace(/[^a-zA-Z]/g, "")
+                    .toLowerCase();
+                }
+              }
+
+              if (!correspondingLetter) {
+                correspondingLetter = String.fromCharCode(
+                  "a".charCodeAt(0) + index,
+                );
+              }
+
+              if (selectedLetters.includes(correspondingLetter)) {
+                found = true;
+                if (!input.checked) {
+                  input.click();
+                  input.checked = true;
+                  input.dispatchEvent(new Event("change", { bubbles: true }));
+                  log(
+                    `-> Selected option [${correspondingLetter}] for question ${i + 1}`,
+                  );
+                }
+              }
+            });
+
+            if (!found)
+              log('Alert: not found any matching letter in the options. Please check the AI response format and the question structure.');
+          }
+        } else {
+          // --- GESTIONE RISPOSTA APERTA INVARIATA ---
+          const formattedResponse = responseText.replace(/\n/g, "<br>");
+          const htmlResponse = `<p>${formattedResponse}</p>`;
+
+          if (hasTinyMCE) {
+            const iframe = currentQuestion.querySelector(
+              '.tox-edit-area__iframe, iframe[id$="_ifr"]',
+            );
+            if (iframe) {
+              const iframeDoc =
+                iframe.contentDocument || iframe.contentWindow.document;
+              const editorBody =
+                iframeDoc.querySelector("#tinymce") || iframeDoc.body;
+
+              if (editorBody) editorBody.innerHTML = htmlResponse;
+
+              if (iframe.id && iframe.id.endsWith("_ifr")) {
+                const baseId = iframe.id.replace("_ifr", "");
+                const hiddenTextArea = document.getElementById(baseId);
+                if (hiddenTextArea) {
+                  hiddenTextArea.value = htmlResponse;
+                  hiddenTextArea.dispatchEvent(
+                    new Event("change", { bubbles: true }),
+                  );
+                }
+              }
+            }
+          } else {
+            const editableDiv = currentQuestion.querySelector(
+              "[contenteditable='true']",
+            );
+            if (editableDiv) {
+              editableDiv.innerHTML = htmlResponse;
+              editableDiv.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+          }
+        }
+      } catch (error) {
+        log(`ERRORE CRITICO: ${error.message}`);
+      }
     }
   };
 
-  // Event listener for the "K" key press
   document.addEventListener("keydown", (event) => {
-    if (event.key.toLowerCase() === "k") {
-      // Check if the "K" key is pressed
-      console.log("K key pressed, running AI...");
+    if (event.key.toLowerCase() === "|") {
+      log("key [|] pressed - Starting MoodleAI...");
       main();
     }
   });
